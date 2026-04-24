@@ -123,7 +123,7 @@ brew install --cask --no-quarantine antigravity-tools
 
 #### Windows 安装版 / 覆盖安装说明
 
-*   本仓库的 **Release** GitHub Actions 工作流支持手动输入版本标签，并会在当前仓库的 GitHub Releases 草稿条目中附带产出 `setup.exe` 和 `.msi` 安装包。
+*   本仓库的 **release** GitHub Actions 工作流支持手动输入版本标签，并会在当前仓库的 GitHub Releases 草稿条目中附带产出 `setup.exe` 和 `.msi` 安装包。
 *   安装版覆盖升级只会替换程序文件，不会清空当前用户的 `~/.antigravity_tools/` 数据目录。
 *   因此从便携版切换到安装版，或安装版覆盖旧版本时，原先已导入的账号、配置和日志通常都会保留，无需重新导入。
 

@@ -54,7 +54,7 @@ jobs:
   # Build all platform artifacts
   # ------------------------------------------------------------------
   build-tauri:
-    needs: [create-tag]
+    needs: create-tag
     if: always() && (needs.create-tag.result == 'success' || needs.create-tag.result == 'skipped')
     permissions:
       contents: write
@@ -104,6 +104,8 @@ jobs:
           cache: "npm"
 
       - name: Install frontend dependencies
+        # --legacy-peer-deps: suppresses peer dependency conflicts between
+        # React 19 and packages that still declare peer deps for React 18.
         run: npm install --legacy-peer-deps
 
       - name: Build the app

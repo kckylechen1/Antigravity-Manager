@@ -1,4 +1,7 @@
 name: Release
+
+# Triggered by pushing a version tag  (e.g. git tag v3.3.15 && git push --tags)
+# or manually from the Actions tab with an explicit release_tag input.
 on:
   push:
     tags:
@@ -6,21 +9,55 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag to publish (for example: v3.3.15)"
+        description: "Release tag to publish (e.g. v3.3.15)"
         required: true
         type: string
-      release_name:
-        description: "Optional release name override"
-        required: false
-        type: string
+
+# Tag name available to every job in the workflow
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
 jobs:
-  release:
+  # ------------------------------------------------------------------
+  # When triggered manually, create the git tag so the release job can
+  # reference it and so tauri bundle names contain the right version.
+  # ------------------------------------------------------------------
+  create-tag:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     permissions:
       contents: write
-    env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
-      RELEASE_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.release_name || '' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate tag format
+        run: |
+          case "${{ inputs.release_tag }}" in
+            v*) ;;
+            *) echo "release_tag must start with 'v' (got: ${{ inputs.release_tag }})" >&2; exit 1 ;;
+          esac
+
+      - name: Create and push git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Only create if the tag does not already exist
+          if git ls-remote --tags origin "${{ inputs.release_tag }}" | grep -q "${{ inputs.release_tag }}"; then
+            echo "Tag ${{ inputs.release_tag }} already exists, skipping creation."
+          else
+            git tag "${{ inputs.release_tag }}"
+            git push origin "${{ inputs.release_tag }}"
+          fi
+
+  # ------------------------------------------------------------------
+  # Build all platform artifacts
+  # ------------------------------------------------------------------
+  build-tauri:
+    needs: [create-tag]
+    if: always() && (needs.create-tag.result == 'success' || needs.create-tag.result == 'skipped')
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +73,7 @@ jobs:
           - platform: "ubuntu-24.04-arm"
             args: ""
           - platform: "windows-latest"
+            # Produce NSIS setup.exe and MSI installer in addition to the default zip
             args: "--bundles nsis,msi"
 
     runs-on: ${{ matrix.platform }}
@@ -43,43 +81,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Validate manual release tag
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          case "${RELEASE_TAG}" in
-            v*) ;;
-            *)
-              echo "release_tag must start with 'v'." >&2
-              exit 1
-              ;;
-          esac
-
-      - name: Resolve release metadata
-        id: release_meta
-        shell: bash
-        run: |
-          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-          if [ -n "${RELEASE_NAME}" ]; then
-            echo "name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
-          else
-            echo "name=Antigravity Tools ${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-          fi
+        with:
+          # Fetch the freshly created tag (for workflow_dispatch runs)
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install dependencies (Linux)
         if: startsWith(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev patchelf pkg-config libsoup-3.0-dev javascriptcoregtk-4.1 libjavascriptcoregtk-4.1-dev
-          # Tauri 2 可能需要 libnm-dev
           sudo apt-get install -y libnm-dev xdg-utils
 
       - name: Rust setup
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Install both targets for macOS to allow cross-compilation and universal build
-          # And install Linux ARM target if needed
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || (contains(matrix.args, 'aarch64') && 'aarch64-unknown-linux-gnu' || '') }}
 
       - name: Node.js setup
@@ -89,16 +104,92 @@ jobs:
           cache: "npm"
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Build the app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run tauri build -- ${{ matrix.args }}
+
+      - name: Rename macOS assets for architecture
+        if: matrix.platform == 'macos-latest'
+        run: |
+          if [[ "${{ matrix.args }}" == *"--target aarch64-apple-darwin"* ]]; then
+            ARCH="aarch64"
+          elif [[ "${{ matrix.args }}" == *"--target x86_64-apple-darwin"* ]]; then
+            ARCH="x64"
+          elif [[ "${{ matrix.args }}" == *"--target universal-apple-darwin"* ]]; then
+            ARCH="universal"
+          else
+            ARCH="unknown"
+          fi
+          cd src-tauri/target/*/release/bundle/macos/
+          if [ -f "Antigravity Tools.app.tar.gz" ]; then
+            mv "Antigravity Tools.app.tar.gz" "Antigravity Tools_${ARCH}.app.tar.gz"
+            [ -f "Antigravity Tools.app.tar.gz.sig" ] && mv "Antigravity Tools.app.tar.gz.sig" "Antigravity Tools_${ARCH}.app.tar.gz.sig"
+          fi
+
+      - name: Upload Release Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tagName: ${{ steps.release_meta.outputs.tag }}
-          releaseName: ${{ steps.release_meta.outputs.name }}
-          releaseBody: "See the assets to download this version and install."
-          releaseDraft: true
-          prerelease: false
-          args: ${{ matrix.args }}
+          name: release-assets-${{ matrix.platform }}-${{ strategy.job-index }}
+          path: |
+            src-tauri/target/**/release/bundle/dmg/*.dmg
+            src-tauri/target/**/release/bundle/deb/*.deb
+            src-tauri/target/**/release/bundle/appimage/*.AppImage
+            src-tauri/target/**/release/bundle/msi/*.msi
+            src-tauri/target/**/release/bundle/nsis/*.exe
+            src-tauri/target/**/release/bundle/rpm/*.rpm
+            src-tauri/target/**/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/**/release/bundle/macos/*.app.tar.gz.sig
+            src-tauri/target/**/release/bundle/dmg/*.sig
+            src-tauri/target/**/release/bundle/deb/*.sig
+            src-tauri/target/**/release/bundle/appimage/*.sig
+            src-tauri/target/**/release/bundle/msi/*.sig
+            src-tauri/target/**/release/bundle/nsis/*.sig
+          if-no-files-found: warn
+
+  # ------------------------------------------------------------------
+  # Collect all artifacts and publish one GitHub Release
+  # ------------------------------------------------------------------
+  publish-release:
+    needs: build-tauri
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          pattern: "release-assets-*"
+          merge-multiple: true
+
+      - name: Extract Release Notes
+        run: |
+          VERSION="${RELEASE_TAG}"
+          awk -v ver="$VERSION" '
+            BEGIN { capture=0 }
+            $0 ~ "^[[:space:]]*[*+-][[:space:]]+\\*\\*" ver { capture=1; next }
+            capture && $0 ~ "^[[:space:]]*[*+-][[:space:]]+\\*\\*v" { capture=0; exit }
+            capture { print }
+          ' README.md | sed 's/^[[:space:]]\{8\}//' > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "See the assets to download this version and install." > release_notes.md
+          fi
+
+      - name: Create or Update GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          tag: ${{ env.RELEASE_TAG }}
+          name: "Antigravity Tools ${{ env.RELEASE_TAG }}"
+          bodyFile: "release_notes.md"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "all-artifacts/**/*"
+          artifactErrorsFailBuild: false
+          replacesArtifacts: true
+          makeLatest: legacy

@@ -123,7 +123,8 @@ Download from this repository's **Releases** page:
 
 #### Windows installer / in-place upgrade notes
 
-*   This repository's **release** GitHub Actions workflow accepts a manual release tag and publishes `*-setup.exe` and `.msi` installer packages into the current repository's draft entry on the GitHub Releases page.
+*   The **Release** workflow produces both a NSIS `*-setup.exe` and a `.msi` installer and attaches them to the GitHub Releases page of the current repository.
+*   To publish manually, go to the Actions tab, select the **Release** workflow, click **Run workflow**, and enter the version tag (e.g. `v3.3.15`).
 *   An installer upgrade only replaces the application files and does not remove the current user's `~/.antigravity_tools/` data directory.
 *   That means switching from the portable build to the installer, or installing a newer installer over an existing one, should keep imported accounts, settings, and logs without requiring a re-import.
 

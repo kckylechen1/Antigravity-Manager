@@ -21,6 +21,7 @@ jobs:
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
       RELEASE_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.release_name || '' }}
+      DEFAULT_RELEASE_NAME: Antigravity Tools ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +75,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: ${{ env.RELEASE_NAME || format('Antigravity Tools {0}', env.RELEASE_TAG) }}
+          releaseName: ${{ env.RELEASE_NAME || env.DEFAULT_RELEASE_NAME }}
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: false

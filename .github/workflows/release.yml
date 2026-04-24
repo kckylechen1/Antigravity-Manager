@@ -55,7 +55,7 @@ jobs:
   # ------------------------------------------------------------------
   build-tauri:
     needs: create-tag
-    if: always() && (needs.create-tag.result == 'success' || needs.create-tag.result == 'skipped')
+    if: "!cancelled() && (needs.create-tag.result == 'success' || needs.create-tag.result == 'skipped')"
     permissions:
       contents: write
     strategy:

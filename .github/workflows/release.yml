@@ -4,11 +4,23 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to publish (for example: v3.3.15)"
+        required: true
+        type: string
+      release_name:
+        description: "Optional release name override"
+        required: false
+        type: string
 
 jobs:
   release:
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+      RELEASE_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.release_name || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -24,7 +36,7 @@ jobs:
           - platform: "ubuntu-24.04-arm"
             args: ""
           - platform: "windows-latest"
-            args: ""
+            args: "--bundles nsis,msi"
 
     runs-on: ${{ matrix.platform }}
 
@@ -61,8 +73,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "Antigravity Tools ${{ github.ref_name }}"
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: ${{ env.RELEASE_NAME != '' && env.RELEASE_NAME || format('Antigravity Tools {0}', env.RELEASE_TAG) }}
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: false

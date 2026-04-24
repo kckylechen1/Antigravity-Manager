@@ -116,14 +116,14 @@ brew install --cask --no-quarantine antigravity-tools
 ```
 
 ### Option B: Manual Download
-Download from [GitHub Releases](https://github.com/lbjlaq/Antigravity-Manager/releases):
+Download from this repository's **Releases** page:
 *   **macOS**: `.dmg` (Universal, Apple Silicon & Intel)
-*   **Windows**: prefer the installer `x64-setup.exe` or `.msi`; portable `.zip` is also available
+*   **Windows**: prefer the installer `x64-setup.exe` or `.msi`
 *   **Linux**: `.deb` or `AppImage`
 
 #### Windows installer / in-place upgrade notes
 
-*   This repository now includes a manually triggered **Windows Installer** GitHub Actions workflow that outputs ready-to-distribute `setup.exe` and `.msi` packages.
+*   This repository's **Release** GitHub Actions workflow accepts a manual release tag and publishes `setup.exe` and `.msi` installer packages into the current repository's draft release.
 *   An installer upgrade only replaces the application files and does not remove the current user's `~/.antigravity_tools/` data directory.
 *   That means switching from the portable build to the installer, or installing a newer installer over an existing one, should keep imported accounts, settings, and logs without requiring a re-import.
 

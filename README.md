@@ -116,14 +116,14 @@ brew install --cask --no-quarantine antigravity-tools
 ```
 
 ### 选项 B: 手动下载
-前往 [GitHub Releases](https://github.com/lbjlaq/Antigravity-Manager/releases) 下载对应系统的包：
+前往当前仓库的 **Releases** 页面下载对应系统的包：
 *   **macOS**: `.dmg` (支持 Apple Silicon & Intel)
-*   **Windows**: 优先使用安装版 `x64-setup.exe` 或 `.msi`，也可选择便携版 `.zip`
+*   **Windows**: 优先使用安装版 `x64-setup.exe` 或 `.msi`
 *   **Linux**: `.deb` 或 `AppImage`
 
 #### Windows 安装版 / 覆盖安装说明
 
-*   本仓库新增了可手动触发的 **Windows Installer** GitHub Actions 工作流，会产出可直接分发的 `setup.exe` 和 `.msi` 安装包。
+*   本仓库的 **Release** GitHub Actions 工作流支持手动输入版本标签，并会在当前仓库的 Draft Release 中附带产出 `setup.exe` 和 `.msi` 安装包。
 *   安装版覆盖升级只会替换程序文件，不会清空当前用户的 `~/.antigravity_tools/` 数据目录。
 *   因此从便携版切换到安装版，或安装版覆盖旧版本时，原先已导入的账号、配置和日志通常都会保留，无需重新导入。
 

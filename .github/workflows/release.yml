@@ -74,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: ${{ env.RELEASE_NAME != '' && env.RELEASE_NAME || format('Antigravity Tools {0}', env.RELEASE_TAG) }}
+          releaseName: ${{ env.RELEASE_NAME || format('Antigravity Tools {0}', env.RELEASE_TAG) }}
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: false

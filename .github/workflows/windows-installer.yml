@@ -1,5 +1,7 @@
 name: Windows Installer
 
+# Use this workflow when you only need Windows installer artifacts.
+# Use the main Release workflow when you want assets attached to a GitHub Release.
 on:
   workflow_dispatch:
 
